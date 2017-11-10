@@ -116,5 +116,18 @@ trait RequestBodyHandlingSpec extends PlaySpecification with ServerIntegrationSp
       responses.length must_== 1
       responses(0).status must_== 500
     }.skipUntilNettyHttpFixed // netty does not need that test, since it does not provide a built-in max-content-length
+
+    "fail when the configured max http header size is reached" in withServerAndConfig("play.server.akka.max-header-value-length" -> "1b")(
+      (Action, parse) =>
+        Action(parse.default(Some(Long.MaxValue))) { rh =>
+          Results.Ok(rh.body.asText.getOrElse(""))
+        }) { port =>
+      val body = "Hello World" * 2
+      val responses = BasicHttpClient.makeRequests(port, trickleFeed = Some(100L))(
+        BasicRequest("GET", "/", "HTTP/1.1", Map("Authorization" -> body), body)
+      )
+      responses.length must_== 1
+      responses(0).status must_== 400
+    }
   }
 }
