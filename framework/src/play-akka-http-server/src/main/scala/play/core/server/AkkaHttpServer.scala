@@ -76,6 +76,7 @@ class AkkaHttpServer(
 
     val parserSettings = ParserSettings(initialConfig)
       .withMaxContentLength(getPossiblyInfiniteBytes(akkaServerConfig.underlying, "max-content-length"))
+      .withMaxHeaderValueLength(akkaServerConfig.underlying.getBytes("max-header-value-length").toInt)
 
     val initialSettings = ServerSettings(initialConfig)
 
