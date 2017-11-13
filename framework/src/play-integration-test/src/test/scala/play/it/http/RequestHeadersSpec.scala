@@ -79,7 +79,19 @@ trait RequestHeadersSpec extends PlaySpecification with ServerIntegrationSpecifi
     }
 
     "handle a big http request header and fail" in withServerAndConfig(
-      "play.server.akka.max-header-value-length" -> "1b", "play.server.netty.maxHeaderSize" -> 1)((Action, parse) => Action(parse.default(Some(Long.MaxValue))) { rh =>
+      "play.server.akka.max-header-value-length" -> "1b")((Action, _) => Action { rh =>
+      Results.Ok("")
+    }) { port =>
+      val testValue = "Hello World" * 2
+      val responses = BasicHttpClient.makeRequests(port, trickleFeed = Some(100L))(
+        BasicRequest("POST", "/", "HTTP/1.1", Map("Authorization" -> testValue.length.toString), testValue)
+      )
+      responses.length must_== 1
+      responses(0).status must_== 400
+    }.skipUntilNettyHttpFixed
+
+    "handle a big http request header and fail" in withServerAndConfig(
+      "play.server.netty.maxHeaderSize" -> 1)((Action, parse) => Action(parse.default(Some(Long.MaxValue))) { rh =>
       Results.Ok(rh.body.asText.getOrElse(""))
     }) { port =>
       val testValue = "Hello World" * 2
@@ -87,8 +99,8 @@ trait RequestHeadersSpec extends PlaySpecification with ServerIntegrationSpecifi
         BasicRequest("POST", "/", "HTTP/1.1", Map("Authorization" -> testValue.length.toString), testValue)
       )
       responses.length must_== 1
-      responses(0).status must_== 500
-    }
+      responses(0).status must_== 414
+    }.skipUntilAkkaHttpFixed
 
     "get request headers properly when Content-Encoding is set" in {
       withServer((Action, _) => Action { rh =>
